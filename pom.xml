@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.imos</groupId>
-	<artifactId>visualization-demo</artifactId>
+	<artifactId>imos-mapbox-server</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>visualization-demo</name>
+	<name>imos-mapbox-server</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>
 	<licenses>
