@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: imos-mapbox-server
+
+app:
+  storage:
+    path: ${user.home}/generated-images
+
+
