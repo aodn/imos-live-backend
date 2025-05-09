@@ -24,7 +24,7 @@ public class PythonRunner {
     private String storagePath;
 
     @Async
-    @Scheduled(cron = "0 00 08 * * ?")
+    @Scheduled(cron = "0 50 12 * * ?")
     public void runScript()  {
         StringBuilder output = new StringBuilder();
         String outputDir = new File(storagePath).getAbsolutePath().replace("\\", "/");
@@ -52,7 +52,7 @@ public class PythonRunner {
                 List<String> dateFiles = FileUtils.findMissingDirectories(storagePath, DateUtils.getLastSevenDays());
                 if(!dateFiles.isEmpty()) throw new RuntimeException("Python script exited with code: " + exitCode);
             } else if (exitCode != 0) {
-                log.error("Python script failed with output:{}", output.toString());
+                log.error("Python script failed with output:{}", output);
                 throw new RuntimeException("Python script exited with code: " + exitCode);
             }
 
