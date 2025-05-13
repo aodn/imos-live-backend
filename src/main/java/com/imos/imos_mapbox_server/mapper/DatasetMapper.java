@@ -7,14 +7,17 @@ import com.imos.imos_mapbox_server.dto.OceanCurrentDetails;
 import com.imos.imos_mapbox_server.dto.OceanCurrentResponse;
 import com.imos.imos_mapbox_server.utils.OceanCurrentUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DatasetMapper {
@@ -73,6 +76,7 @@ public class DatasetMapper {
 
     public OceanCurrentDetails readOceanCurrentDetails(String date) throws IOException {
         Path oceanCurrentPath = Paths.get(storagePath, date, "gsla_data.json").toAbsolutePath();
+
         return objectMapper.readValue(oceanCurrentPath.toFile(), OceanCurrentDetails.class);
     }
 
