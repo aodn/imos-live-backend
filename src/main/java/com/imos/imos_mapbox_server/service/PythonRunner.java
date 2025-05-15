@@ -24,7 +24,7 @@ public class PythonRunner {
     private String storagePath;
 
     @Async
-    @Scheduled(cron = "0 15 10 * * ?")
+    @Scheduled(cron = "0 40 09 * * ?")
     public void runScript()  {
         StringBuilder output = new StringBuilder();
         String outputDir = new File(storagePath).getAbsolutePath().replace("\\", "/");
