@@ -61,7 +61,7 @@ public class PythonRunner {
         }
     }
 
-    private ProcessBuilder buildDockerProcess(String outputDir, List<String> dynamicArgs) {
+    private ProcessBuilder buildDockerProcess(String outputDir, List<String> missingDates) {
         List<String> command = new ArrayList<>();
         command.add("docker");
         command.add("run");
@@ -69,8 +69,10 @@ public class PythonRunner {
         command.add("-v");
         command.add(outputDir + ":/data");
         command.add("gsla-py-script");
+        command.add("--output_base_dir");
         command.add("/data");
-        command.addAll(dynamicArgs);
+        command.add("--dates");
+        command.addAll(missingDates);
         return new ProcessBuilder(command);
     }
 }

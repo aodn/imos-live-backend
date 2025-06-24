@@ -1,3 +1,4 @@
+import argparse
 import sys
 import s3fs
 import xarray as xr
@@ -25,7 +26,7 @@ def get_dataset(date):
 
     # add coordinate reference system info so that xarray can interpret it
     ds.attrs['crs'] = ccrs.PlateCarree()  # "WGS84"
-    
+
     # return slightly smaller subset to speed up and avoid issues around LON=180...
     return ds.sel(TIME=date.strftime("%Y-%m-%d"), LATITUDE=slice(-50, 0), LONGITUDE=slice(110, 170))
     # return ds.sel(LATITUDE=slice(-50, 0), LONGITUDE=slice(110, 170))
@@ -57,14 +58,14 @@ def to_png_overlay(dataset_in, filename):
 # convert netcdf file to png image, including information of an area's occean current per a period of time.
 def to_png_input(dataset_in, filename):
     dataset_in["ALPHA"] = np.logical_not(np.logical_and(dataset_in.UCUR.isnull(), dataset_in.VCUR.isnull()))
-    
+
     # create new dataset with NaNs removed and rescaled to 0-255
     dataset_in["UCUR_NEW"] = dataset_in.UCUR.fillna(0.)
     dataset_in["VCUR_NEW"] = dataset_in.VCUR.fillna(0.)
-    
+
     UCUR_MIN, UCUR_MAX = dataset_in.UCUR_NEW.min(), dataset_in.UCUR_NEW.max()
     VCUR_MIN, VCUR_MAX = dataset_in.VCUR_NEW.min(), dataset_in.VCUR_NEW.max()
-    
+
     # rescale the data to 0-255 for display
     dataset_in["UCUR_NEW"] = 255 * (dataset_in.UCUR_NEW - UCUR_MIN) / (UCUR_MAX - UCUR_MIN)
     dataset_in["VCUR_NEW"] = 255 * (dataset_in.VCUR_NEW - VCUR_MIN) / (VCUR_MAX - VCUR_MIN)
@@ -74,15 +75,15 @@ def to_png_input(dataset_in, filename):
     stacked = dataset_in.reindex(LATITUDE=list(reversed(dataset_in.LATITUDE)))
 
     stacked = stacked.stack(z=["LATITUDE", "LONGITUDE"])
-    
+
     # get the U, V and ALPHA values from the stacked dataset, U, V and ALPHA are the new names for UCUR, VCUR and ALPHA respectively, and they are all 1D arrays now.
     Us, Vs, ALPHAs = stacked.UCUR_NEW.values, stacked.VCUR_NEW.values, stacked.ALPHA.values
-   
+
     # convert data to a png, with U and V in the R and G channels and the show particle flag in B channel
     img_data = []
 
     for i, (U, V, ALPHA) in enumerate(zip(Us, Vs, ALPHAs)):
-         img_data.extend([int(U), int(V), 255*ALPHA, 255])
+        img_data.extend([int(U), int(V), 255*ALPHA, 255])
 
     img = Image.frombytes('RGBA', (dataset_in.sizes['LONGITUDE'], dataset_in.sizes['LATITUDE']), bytes(img_data))
     img.save(filename)
@@ -136,12 +137,9 @@ def to_json_meta(dataset_in, filename):
         }, f, indent=4)
 
 
-
-
-# get the last 7 days of data from 3 days before today
 def create_gsla_data_for_date(date, base_dir):
     dataset = get_dataset(date)
-    save_dir = base_dir / date.strftime("%y-%m-%d")
+    save_dir = base_dir / date.strftime("%Y-%m-%d")
     save_dir.mkdir(parents=True, exist_ok=True)
     to_png_overlay(dataset, save_dir / "gsla_overlay.png")
     to_png_input(dataset, save_dir / "gsla_input.png")
@@ -149,12 +147,27 @@ def create_gsla_data_for_date(date, base_dir):
     to_json_value(dataset,save_dir / "gsla_data.json")
 
 if __name__ == "__main__":
-    output_base_dir = Path(sys.argv[1])
-    dynamic_args = sys.argv[2:]
+    parser = argparse.ArgumentParser(
+        description="Generate GSLA overlay/input/meta/data files for specified dates."
+    )
+    parser.add_argument(
+        "--output_base_dir",
+        type=Path,
+        required=True,
+        help="Directory where processed images and metadata will be saved.",
+    )
+    parser.add_argument(
+        "--dates",
+        nargs="*",
+        required=True,
+        help="List of dates in YYYY-MM-DD format.",
+    )
 
-    for date in dynamic_args:
-        create_gsla_data_for_date(
-            datetime.datetime.strptime(date, "%y-%m-%d"),
-            Path(output_base_dir)
-            # saved to generated-images folder
-        )
+    args = parser.parse_args()
+
+    for date_str in args.dates:
+        try:
+            date = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+            create_gsla_data_for_date(date, args.output_base_dir)
+        except ValueError as e:
+            print(f"❌ Invalid date format: {date_str} (expected YYYY-MM-DD)")

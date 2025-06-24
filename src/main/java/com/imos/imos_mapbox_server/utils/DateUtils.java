@@ -16,10 +16,10 @@ public class DateUtils {
      * <p>For example, if today is 2025-04-28, the method will generate dates
      * from 2025-04-19 to 2025-04-25 (excluding the last three days: 26th, 27th, 28th).</p>
      *
-     * @return a {@link List} of 7 date strings, each formatted as "yy-MM-dd"
+     * @return a {@link List} of 7 date strings, each formatted as "yyyy-MM-dd"
      */
     public static List<String> getLastSevenDays() {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yy-MM-dd");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate endDate = LocalDate.now().minusDays(3);
 
         return IntStream.rangeClosed(0, 6)
