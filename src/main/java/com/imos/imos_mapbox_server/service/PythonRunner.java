@@ -17,25 +17,33 @@ import java.util.List;
 
 @Service
 @Slf4j
-@EnableAsync
 public class PythonRunner {
 
     @Value("${app.storage.path}")
     private String storagePath;
 
-    @Async
     @Scheduled(cron = "0 40 09 * * ?")
-    public void runScript()  {
+    public void runScheduledScript() {  // Better method name
+        try {
+            runScript();
+        } catch (Exception e) {
+            log.error("Scheduled Python script execution failed", e);
+        }
+    }
+
+    public void runScript() {
         StringBuilder output = new StringBuilder();
         String outputDir = new File(storagePath).getAbsolutePath().replace("\\", "/");
 
         List<String> missingDateFiles = FileUtils.findMissingDirectories(storagePath, DateUtils.getLastSevenDays());
 
-        if(missingDateFiles.isEmpty()) return;
+        if(missingDateFiles.isEmpty()) {
+            log.info("No missing date files found, skipping script execution");
+            return;
+        }
 
         try {
             ProcessBuilder builder = buildDockerProcess(outputDir, missingDateFiles);
-
             builder.redirectErrorStream(true);
             Process process = builder.start();
 
@@ -44,19 +52,27 @@ public class PythonRunner {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     output.append(line).append(System.lineSeparator());
+                    log.debug("Python script output: {}", line);
                 }
             }
 
             int exitCode = process.waitFor();
             if (exitCode == 139) {
-                List<String> dateFiles = FileUtils.findMissingDirectories(storagePath, DateUtils.getLastSevenDays());
-                if(!dateFiles.isEmpty()) throw new RuntimeException("Python script exited with code: " + exitCode);
+                // Check if files are still missing after execution
+                List<String> stillMissingFiles = FileUtils.findMissingDirectories(storagePath, DateUtils.getLastSevenDays());
+                if(!stillMissingFiles.isEmpty()) {
+                    throw new RuntimeException("Python script exited with segmentation fault (139), files still missing");
+                }
+                log.warn("Python script exited with code 139 but all files were created successfully");
             } else if (exitCode != 0) {
-                log.error("Python script failed with output:{}", output);
+                log.error("Python script failed with exit code {} and output: {}", exitCode, output);
                 throw new RuntimeException("Python script exited with code: " + exitCode);
+            } else {
+                log.info("Python script executed successfully");
             }
 
         } catch (Exception e) {
+            log.error("Failed to execute Python script for dates: {}", missingDateFiles, e);
             throw new RuntimeException("Failed to run Python script", e);
         }
     }
@@ -73,6 +89,8 @@ public class PythonRunner {
         command.add("/data");
         command.add("--dates");
         command.addAll(missingDates);
+
+        log.info("Executing Docker command: {}", String.join(" ", command));
         return new ProcessBuilder(command);
     }
 }

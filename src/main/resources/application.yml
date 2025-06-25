@@ -2,8 +2,19 @@ spring:
   application:
     name: imos-mapbox-server
 
+
 app:
   storage:
     path: ${user.home}/generated-images
+  scheduling:
+    taskS3Upload:
+      enabled: true
+
+cloud:
+  aws:
+    region:
+      static: ap-southeast-2
+    s3:
+      bucket: imos-live-test-leslie
 
 
