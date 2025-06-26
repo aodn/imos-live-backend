@@ -34,7 +34,7 @@ public class S3UploadScheduler {
             processAndUploadFiles();
         }
     }
-
+    //TODO: upload wave buoys data to S3 and do not upload repeated ones.
     public void processAndUploadFiles() {
         try {
             Path sourceDir = Paths.get(sourceDirectory);

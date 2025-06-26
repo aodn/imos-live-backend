@@ -1,5 +1,6 @@
 package com.imos.imos_mapbox_server.service;
 
+import com.imos.imos_mapbox_server.constant.DataProcessingConstants;
 import com.imos.imos_mapbox_server.utils.DateUtils;
 import com.imos.imos_mapbox_server.utils.FileUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -20,28 +21,43 @@ public class PythonRunner {
     @Value("${app.storage.path}")
     private String storagePath;
 
+    // Daily GSLA processing at 9:40 AM
     @Scheduled(cron = "0 40 09 * * ?")
-    public void runScheduledScript() {
+    public void runGslaScript() {
+        log.info("Starting daily GSLA script execution");
         try {
-            runScript();
+            List<String> missingDates = FileUtils.findMissingDirectories(storagePath, DateUtils.getLastSevenDays());
+            if (!missingDates.isEmpty()) {
+                String GSLA_PROCESSING_SCRIPT = DataProcessingConstants.GSLA_PROCESSING_SCRIPT;
+                runScript(GSLA_PROCESSING_SCRIPT, missingDates);
+            } else {
+                log.info("No missing GSLA date files found, skipping script execution");
+            }
         } catch (Exception e) {
-            log.error("Scheduled Python script execution failed", e);
+            log.error("GSLA script execution failed", e);
         }
     }
 
-    public void runScript() {
+    // Monthly wave buoys processing on 1st day at 2:00 AM
+    @Scheduled(cron = "0 0 02 1 * ?")
+    public void runWaveBuoysScript() {
+        log.info("Starting monthly wave buoys script execution");
+        try {
+            //TODO add condition check, if data already processed then skip.
+            String WAVE_BUOYS_PROCESSING_SCRIPT = DataProcessingConstants.WAVE_BUOYS_PROCESSING_SCRIPT;
+            runScript(WAVE_BUOYS_PROCESSING_SCRIPT, List.of("2025-01-01"));
+        } catch (Exception e) {
+            log.error("Wave buoys script execution failed", e);
+        }
+    }
+
+
+    private void runScript(String scriptName, List<String> dates) {
         StringBuilder output = new StringBuilder();
         String outputDir = new File(storagePath).getAbsolutePath().replace("\\", "/");
 
-        List<String> missingDateFiles = FileUtils.findMissingDirectories(storagePath, DateUtils.getLastSevenDays());
-
-        if(missingDateFiles.isEmpty()) {
-            log.info("No missing date files found, skipping script execution");
-            return;
-        }
-
         try {
-            ProcessBuilder builder = buildDockerProcess(outputDir, missingDateFiles);
+            ProcessBuilder builder = buildDockerProcess(outputDir, scriptName, dates);
             builder.redirectErrorStream(true);
             Process process = builder.start();
 
@@ -70,23 +86,25 @@ public class PythonRunner {
             }
 
         } catch (Exception e) {
-            log.error("Failed to execute Python script for dates: {}", missingDateFiles, e);
+            log.error("Failed to execute Python script {} for dates: {}", scriptName, dates, e);
             throw new RuntimeException("Failed to run Python script", e);
         }
     }
 
-    private ProcessBuilder buildDockerProcess(String outputDir, List<String> missingDates) {
+    private ProcessBuilder buildDockerProcess(String outputDir, String scriptName, List<String> dates) {
+        String dockerImageName = DataProcessingConstants.DATA_PROCESSING_IMAGE;
         List<String> command = new ArrayList<>();
         command.add("docker");
         command.add("run");
         command.add("--rm");
         command.add("-v");
         command.add(outputDir + ":/data");
-        command.add("gsla-py-script");
+        command.add(dockerImageName);
+        command.add(scriptName);
         command.add("--output_base_dir");
         command.add("/data");
         command.add("--dates");
-        command.addAll(missingDates);
+        command.addAll(dates);
 
         log.info("Executing Docker command: {}", String.join(" ", command));
         return new ProcessBuilder(command);

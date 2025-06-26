@@ -5,7 +5,7 @@ spring:
 
 app:
   storage:
-    path: ${user.home}/generated-images
+    path: ${user.home}/processed-data
   scheduling:
     taskS3Upload:
       enabled: true
