@@ -57,6 +57,7 @@ public class S3UploadScheduler {
             for (Path file : filesToUpload) {
                 String key = generateS3Key(file,sourceDir);
                 s3Service.uploadFile(key, file);
+                handleFileAfterUpload(file);
             }
 
             log.info("Completed uploading {} files", filesToUpload.size());
@@ -92,14 +93,7 @@ public class S3UploadScheduler {
 
     private void handleFileAfterUpload(Path file) {
         try {
-            // Option 1: Move to processed directory
-            Path processedDir = Paths.get(sourceDirectory, "processed");
-            Files.createDirectories(processedDir);
-            Files.move(file, processedDir.resolve(file.getFileName()));
-
-            // Option 2: Delete the file
-            // Files.delete(file);
-
+             Files.delete(file);
         } catch (IOException e) {
             log.error("Error handling file after upload: {}", e.getMessage(), e);
         }

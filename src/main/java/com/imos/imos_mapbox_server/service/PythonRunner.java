@@ -4,8 +4,6 @@ import com.imos.imos_mapbox_server.utils.DateUtils;
 import com.imos.imos_mapbox_server.utils.FileUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +21,7 @@ public class PythonRunner {
     private String storagePath;
 
     @Scheduled(cron = "0 40 09 * * ?")
-    public void runScheduledScript() {  // Better method name
+    public void runScheduledScript() {
         try {
             runScript();
         } catch (Exception e) {

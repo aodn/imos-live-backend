@@ -18,7 +18,7 @@ public class ImosMapboxServerApplication {
 		SpringApplication.run(ImosMapboxServerApplication.class, args);
 	}
 
-	//enable scheduled task work once immediately after application starts.
+	//enable scheduled task work once immediately after application starts. S3 task need wait python runner finish.
 	@Bean
 	public CommandLineRunner commandLineRunner(PythonRunner pythonRunner, S3UploadScheduler s3UploadScheduler) {
 		return args -> {
