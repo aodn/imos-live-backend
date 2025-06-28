@@ -6,9 +6,6 @@ spring:
 app:
   storage:
     path: ${user.home}/processed-data
-  scheduling:
-    taskS3Upload:
-      enabled: true
 
 cloud:
   aws:

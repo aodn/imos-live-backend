@@ -1,63 +1,76 @@
 package com.imos.imos_mapbox_server.service;
 
-import com.imos.imos_mapbox_server.constant.DataProcessingConstants;
+import com.imos.imos_mapbox_server.constant.BuoyConstants;
+import com.imos.imos_mapbox_server.enums.UploadType;
 import com.imos.imos_mapbox_server.utils.DateUtils;
-import com.imos.imos_mapbox_server.utils.FileUtils;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.imos.imos_mapbox_server.constant.DataProcessingConstants.*;
+
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class PythonRunner {
+    private final S3Service s3Service;
+    private final S3UploadQueue s3UploadQueue;
 
     @Value("${app.storage.path}")
     private String storagePath;
+
 
     // Daily GSLA processing at 9:40 AM
     @Scheduled(cron = "0 40 09 * * ?")
     public void runGslaScript() {
         log.info("Starting daily GSLA script execution");
         try {
-            List<String> missingDates = FileUtils.findMissingDirectories(storagePath, DateUtils.getLastSevenDays());
+            Path outputDir = Paths.get(storagePath, UploadType.GSLA.name());
+            List<String> missingDates = s3Service.findGslaMissingFiles(outputDir, DateUtils.getLastSevenDays());
+
             if (!missingDates.isEmpty()) {
-                String GSLA_PROCESSING_SCRIPT = DataProcessingConstants.GSLA_PROCESSING_SCRIPT;
-                runScript(GSLA_PROCESSING_SCRIPT, missingDates);
-            } else {
-                log.info("No missing GSLA date files found, skipping script execution");
+                runScript(outputDir, GSLA_PROCESSING_SCRIPT, missingDates, null);
+                s3UploadQueue.queueGslaUpload(outputDir);
             }
+
         } catch (Exception e) {
             log.error("GSLA script execution failed", e);
         }
     }
 
-    // Monthly wave buoys processing on 1st day at 2:00 AM
-    @Scheduled(cron = "0 0 02 1 * ?")
+    // Weekly wave buoys processing at 2:00 AM
+    @Scheduled(cron = "0 0 2 ? * MON")
     public void runWaveBuoysScript() {
         log.info("Starting monthly wave buoys script execution");
         try {
-            //TODO add condition check, if data already processed then skip.
-            String WAVE_BUOYS_PROCESSING_SCRIPT = DataProcessingConstants.WAVE_BUOYS_PROCESSING_SCRIPT;
-            runScript(WAVE_BUOYS_PROCESSING_SCRIPT, List.of("2025-01-01"));
+            Path outputDir = Paths.get(storagePath, UploadType.BUOY.name());
+            List<String> missingDates =s3Service.findBuoyMissingFiles(outputDir, DateUtils.getCurrentMonthsInCurrentYear());
+
+            if(!missingDates.isEmpty()) {
+                runScript(outputDir, WAVE_BUOYS_PROCESSING_SCRIPT, missingDates, BuoyConstants.BUOYS);
+                s3UploadQueue.queueBuoyUpload(outputDir);
+            }
+
         } catch (Exception e) {
             log.error("Wave buoys script execution failed", e);
         }
     }
 
 
-    private void runScript(String scriptName, List<String> dates) {
+    private void runScript(Path outputDir, String scriptName, List<String> dates, List<String> buoys) {
         StringBuilder output = new StringBuilder();
-        String outputDir = new File(storagePath).getAbsolutePath().replace("\\", "/");
 
         try {
-            ProcessBuilder builder = buildDockerProcess(outputDir, scriptName, dates);
+            ProcessBuilder builder = buildDockerProcess(outputDir, scriptName, dates,buoys);
             builder.redirectErrorStream(true);
             Process process = builder.start();
 
@@ -72,11 +85,6 @@ public class PythonRunner {
 
             int exitCode = process.waitFor();
             if (exitCode == 139) {
-                // Check if files are still missing after execution
-                List<String> stillMissingFiles = FileUtils.findMissingDirectories(storagePath, DateUtils.getLastSevenDays());
-                if(!stillMissingFiles.isEmpty()) {
-                    throw new RuntimeException("Python script exited with segmentation fault (139), files still missing");
-                }
                 log.warn("Python script exited with code 139 but all files were created successfully");
             } else if (exitCode != 0) {
                 log.error("Python script failed with exit code {} and output: {}", exitCode, output);
@@ -91,22 +99,33 @@ public class PythonRunner {
         }
     }
 
-    private ProcessBuilder buildDockerProcess(String outputDir, String scriptName, List<String> dates) {
-        String dockerImageName = DataProcessingConstants.DATA_PROCESSING_IMAGE;
+
+    private ProcessBuilder buildDockerProcess(
+            Path outputDir,
+            String scriptName,
+            List<String> dates,
+            List<String> buoys
+    ) {
         List<String> command = new ArrayList<>();
         command.add("docker");
         command.add("run");
         command.add("--rm");
         command.add("-v");
-        command.add(outputDir + ":/data");
-        command.add(dockerImageName);
+        command.add(outputDir.toAbsolutePath().toString().replace("\\", "/") + ":/data");
+        command.add(DATA_PROCESSING_IMAGE);
         command.add(scriptName);
         command.add("--output_base_dir");
         command.add("/data");
         command.add("--dates");
         command.addAll(dates);
 
-        log.info("Executing Docker command: {}", String.join(" ", command));
+        if (WAVE_BUOYS_PROCESSING_SCRIPT.equals(scriptName)) {
+            if (buoys != null && !buoys.isEmpty()) {
+                command.add("--buoys");
+                command.addAll(buoys);
+            }
+        }
+
         return new ProcessBuilder(command);
     }
 }

@@ -2,6 +2,7 @@ package com.imos.imos_mapbox_server.utils;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -26,5 +27,22 @@ public class DateUtils {
                 .mapToObj(i -> endDate.minusDays(6 - i))
                 .map(date -> date.format(formatter))
                 .collect(Collectors.toList());
+    }
+
+
+    public static List<String> getCurrentMonthsInCurrentYear() {
+        List<String> months = new ArrayList<>();
+        LocalDate now = LocalDate.now();
+        int currentYear = now.getYear();
+        int currentMonth = now.getMonthValue();
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+        for (int month = 1; month <= currentMonth; month++) {
+            LocalDate date = LocalDate.of(currentYear, month, 1);
+            months.add(date.format(formatter));
+        }
+
+        return months;
     }
 }

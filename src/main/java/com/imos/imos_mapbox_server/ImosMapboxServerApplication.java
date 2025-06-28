@@ -1,7 +1,6 @@
 package com.imos.imos_mapbox_server;
 
 import com.imos.imos_mapbox_server.constant.DataProcessingConstants;
-import com.imos.imos_mapbox_server.scheduler.S3UploadScheduler;
 import com.imos.imos_mapbox_server.service.PythonRunner;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -9,6 +8,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
+
 
 import java.util.concurrent.CompletableFuture;
 
@@ -21,28 +21,18 @@ public class ImosMapboxServerApplication {
 		SpringApplication.run(ImosMapboxServerApplication.class, args);
 	}
 
-	//enable scheduled task work once immediately after application starts. S3 task need wait python runner finish.
+	//enable scheduled task work once immediately after application starts.
 	@Bean
-	public CommandLineRunner commandLineRunner(PythonRunner pythonRunner, S3UploadScheduler s3UploadScheduler) {
+	public CommandLineRunner commandLineRunner(PythonRunner pythonRunner) {
 		String GSLA_PROCESSING_SCRIPT = DataProcessingConstants.GSLA_PROCESSING_SCRIPT;
 		String WAVE_BUOYS_PROCESSING_SCRIPT = DataProcessingConstants.WAVE_BUOYS_PROCESSING_SCRIPT;
-		return args -> {
 
-			log.info("Starting initial data processing pipeline...");
-			//start these two simultaneously
+
+		return args -> {
 			CompletableFuture<Void>	waveBuoysTask =	runScriptAsync(WAVE_BUOYS_PROCESSING_SCRIPT,pythonRunner::runWaveBuoysScript);
 			CompletableFuture<Void>	gslaTask =	runScriptAsync(GSLA_PROCESSING_SCRIPT,pythonRunner::runGslaScript);
 
 			CompletableFuture.allOf(waveBuoysTask,gslaTask).join();
-			log.info("Both Python scripts completed. Starting S3 upload...");
-
-			try {
-				s3UploadScheduler.processAndUploadFiles();
-			} catch (Exception e) {
-				log.error("Failed to run S3 upload on startup", e);
-			}
-
-			log.info("All initial data processing completed successfully");
 		};
 	}
 
