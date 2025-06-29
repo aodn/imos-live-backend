@@ -21,7 +21,5 @@ public class S3Config {
                 .credentialsProvider(DefaultCredentialsProvider.create())
                 .build();
 //        the Access key and Secret access key are put in run configuration as env variables which will be read by s3client automatically.
-//        AWS_ACCESS_KEY_ID=AKIAY6V2QW5Q2VWCWVEO    AWS_SECRET_ACCESS_KEY=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
-
     }
 }
