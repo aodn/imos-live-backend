@@ -1,7 +1,6 @@
 package com.imos.imos_mapbox_server.service;
 
-import com.imos.imos_mapbox_server.constant.BuoyConstants;
-import com.imos.imos_mapbox_server.enums.UploadType;
+
 import com.imos.imos_mapbox_server.utils.DateUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +15,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.imos.imos_mapbox_server.constant.BuoyConstants.BUOYS;
 import static com.imos.imos_mapbox_server.constant.DataProcessingConstants.*;
+import static com.imos.imos_mapbox_server.enums.UploadType.BUOY;
+import static com.imos.imos_mapbox_server.enums.UploadType.GSLA;
 
 @Service
 @Slf4j
@@ -34,7 +36,7 @@ public class PythonRunner {
     public void runGslaScript() {
         log.info("Starting daily GSLA script execution");
         try {
-            Path outputDir = Paths.get(storagePath, UploadType.GSLA.name());
+            Path outputDir = Paths.get(storagePath, GSLA.name());
             List<String> missingDates = s3Service.findGslaMissingFiles(outputDir, DateUtils.getLastSevenDays());
 
             if (!missingDates.isEmpty()) {
@@ -47,16 +49,16 @@ public class PythonRunner {
         }
     }
 
-    // Weekly wave buoys processing at 2:00 AM
-    @Scheduled(cron = "0 0 2 ? * MON")
+    // Daily wave buoys processing at 2:00 AM
+    @Scheduled(cron = "0 0 2 ? * *")
     public void runWaveBuoysScript() {
         log.info("Starting monthly wave buoys script execution");
         try {
-            Path outputDir = Paths.get(storagePath, UploadType.BUOY.name());
+            Path outputDir = Paths.get(storagePath, BUOY.name());
             List<String> missingDates =s3Service.findBuoyMissingFiles(outputDir, DateUtils.getCurrentMonthsInCurrentYear());
 
             if(!missingDates.isEmpty()) {
-                runScript(outputDir, WAVE_BUOYS_PROCESSING_SCRIPT, missingDates, BuoyConstants.BUOYS);
+                runScript(outputDir, WAVE_BUOYS_PROCESSING_SCRIPT, missingDates, BUOYS);
                 s3UploadQueue.queueBuoyUpload(outputDir);
             }
 

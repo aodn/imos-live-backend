@@ -18,33 +18,6 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def validate_dates(dates: list[str]) -> bool:
-    """
-    Validate that all dates are in correct format and from the same year.
-
-    Args:
-        dates: List of date strings in YYYY-MM-DD format and day should be 01.
-
-    Returns:
-        True if valid, False otherwise
-    """
-    if not dates:
-        logger.error("No dates provided")
-        return False
-
-    try:
-        parsed_dates = [datetime.strptime(date, '%Y-%m-%d') for date in dates]
-        years = {date.year for date in parsed_dates}
-
-        if len(years) > 1:
-            logger.error(f"Dates span multiple years: {years}")
-            return False
-
-        return True
-    except ValueError as e:
-        logger.error(f"Invalid date format: {e}")
-        return False
-
 def truncate(value, decimals=2):
     """
     Truncate a float value to a specified number of decimal places.
@@ -166,8 +139,6 @@ def fetch_all_nc_files_per_year(dates: list[str], buoys: list, max_workers: int 
     Returns:
         List of NCFileInfo dictionaries for all NetCDF files found
     """
-    if not validate_dates(dates):
-        return []
 
     # Generate catalog URLs for all buoys
     year = datetime.strptime(dates[0], '%Y-%m-%d').year
@@ -568,11 +539,6 @@ Examples:
     # Set logging level
     logging.getLogger().setLevel(getattr(logging, args.log_level))
 
-    # Validate inputs
-    if not validate_dates(args.dates):
-        logger.error("Invalid dates provided. Exiting.")
-        return 1
-
     # Ensure output directory exists and is writable
     try:
         args.output_base_dir.mkdir(parents=True, exist_ok=True)
@@ -602,3 +568,8 @@ Examples:
 
 if __name__ == "__main__":
     exit(main())
+
+
+
+
+

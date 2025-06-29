@@ -75,7 +75,7 @@ public class DatasetMapper {
     }
 
     public OceanCurrentDetails readOceanCurrentDetails(String date) throws IOException {
-        Path oceanCurrentPath = Paths.get(storagePath, date, "gsla_data.json").toAbsolutePath();
+        Path oceanCurrentPath = Paths.get(storagePath, "GSLA", date, "gsla_data.json").toAbsolutePath();
 
         return objectMapper.readValue(oceanCurrentPath.toFile(), OceanCurrentDetails.class);
     }

@@ -1,7 +1,6 @@
 package com.imos.imos_mapbox_server.service;
 
 import com.imos.imos_mapbox_server.dto.UploadTask;
-import com.imos.imos_mapbox_server.enums.UploadType;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +12,9 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+
+import static com.imos.imos_mapbox_server.enums.UploadType.BUOY;
+import static com.imos.imos_mapbox_server.enums.UploadType.GSLA;
 
 @Service
 @Slf4j
@@ -28,7 +30,7 @@ public class S3UploadQueue {
     }
 
     public void queueGslaUpload(Path outputDir) {
-        boolean added = uploadQueue.offer(new UploadTask(UploadType.GSLA, outputDir));
+        boolean added = uploadQueue.offer(new UploadTask(GSLA, outputDir));
         if (added) {
             log.info("Queued GSLA upload for: {}", outputDir);
         } else {
@@ -37,7 +39,7 @@ public class S3UploadQueue {
     }
 
     public void queueBuoyUpload(Path outputDir) {
-        boolean added = uploadQueue.offer(new UploadTask(UploadType.BUOY, outputDir));
+        boolean added = uploadQueue.offer(new UploadTask(BUOY, outputDir));
         if (added) {
             log.info("Queued BUOY upload for: {}", outputDir);
         } else {
@@ -49,7 +51,6 @@ public class S3UploadQueue {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 UploadTask task = uploadQueue.take();
-
                 s3Service.processAndUploadFiles(task.getOutputDir());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

@@ -1,6 +1,5 @@
 package com.imos.imos_mapbox_server.service;
 
-import com.imos.imos_mapbox_server.dto.S3FileUploadRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +22,9 @@ import static com.imos.imos_mapbox_server.constant.GslaFileConstants.*;
 @RequiredArgsConstructor
 @Service
 public class S3Service {
+    private final static  String BUOY_LOCATION_DIR="buoy_locations";
+    private final static  String BUOY_DETAILS_DIR="buoy_details";
+
     private final S3Client s3Client;
 
     @Value("${cloud.aws.s3.bucket}")
@@ -113,9 +115,8 @@ public class S3Service {
 
 
     public List<String> findBuoyMissingFiles(Path sourceDir, List<String> dates) {
-        String locationPrefix = generateS3Key(sourceDir.resolve("buoy_locations")) ;
-        String detailsPrefix = generateS3Key(sourceDir.resolve("buoy_details"));
-
+        String locationPrefix = generateS3Key(sourceDir.resolve(BUOY_LOCATION_DIR)) ;
+        String detailsPrefix = generateS3Key(sourceDir.resolve(BUOY_DETAILS_DIR));
         List<String> missingFiles = new ArrayList<>();
         for (String date : dates) {
             if(!objectExists(locationPrefix, date) || !objectExists(detailsPrefix, date)) {
