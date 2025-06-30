@@ -375,6 +375,7 @@ def create_daily_geojson_safely(url: str, buoy: str, output_dir: str = 'buoy_det
                             # Extract attributes
                             units= hourly_data_group[var_name].attrs.get('units', 'unknown')
                             standard_name = hourly_data_group[var_name].attrs.get('standard_name', '')
+                            long_name = hourly_data_group[var_name].attrs.get('long_name', '')
                             valid_min = hourly_data_group[var_name].attrs.get('valid_min', None)
                             valid_max = hourly_data_group[var_name].attrs.get('valid_max', None)
                             positive = hourly_data_group[var_name].attrs.get('positive', None)
@@ -397,6 +398,7 @@ def create_daily_geojson_safely(url: str, buoy: str, output_dir: str = 'buoy_det
                 properties[var_name] = {
                     "name": var_name,
                     "standard_name": standard_name,
+                    "long_name": long_name,
                     "units": units,
                     "positive": positive,
                     "reference_datum": reference_datum,
