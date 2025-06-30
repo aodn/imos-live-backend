@@ -353,7 +353,6 @@ def create_daily_geojson_safely(url: str, buoy: str, output_dir: str = 'buoy_det
             properties = {
                 "date": str(date),
                 "location": buoy,
-                "records_count": int(len(daily_data.TIME)),
                 "time_range": {
                     "start": str(daily_data.TIME.min().values),
                     "end": str(daily_data.TIME.max().values)
@@ -373,6 +372,16 @@ def create_daily_geojson_safely(url: str, buoy: str, output_dir: str = 'buoy_det
 
                             # Calculate hourly mean
                             hourly_mean = hourly_data_group[var_name].mean().values
+                            # Extract attributes
+                            units= hourly_data_group[var_name].attrs.get('units', 'unknown')
+                            standard_name = hourly_data_group[var_name].attrs.get('standard_name', '')
+                            valid_min = hourly_data_group[var_name].attrs.get('valid_min', None)
+                            valid_max = hourly_data_group[var_name].attrs.get('valid_max', None)
+                            positive = hourly_data_group[var_name].attrs.get('positive', None)
+                            reference_datum = hourly_data_group[var_name].attrs.get('reference_datum', None)
+                            ancillary_variable = hourly_data_group[var_name].attrs.get('ancillary_variables', None)
+                            compass_correction_applied = hourly_data_group[var_name].attrs.get('compass_correction_applied', None)
+
 
                             # Handle NaN values
                             if not np.isnan(hourly_mean):
@@ -387,7 +396,15 @@ def create_daily_geojson_safely(url: str, buoy: str, output_dir: str = 'buoy_det
                 # Add to properties
                 properties[var_name] = {
                     "name": var_name,
-                    "data": hourly_data
+                    "standard_name": standard_name,
+                    "units": units,
+                    "positive": positive,
+                    "reference_datum": reference_datum,
+                    "valid_min": valid_min,
+                    "valid_max": valid_max,
+                    "data": hourly_data,
+                    "ancillary_variable": ancillary_variable,
+                    "compass_correction_applied": compass_correction_applied
                 }
 
             # Create single feature with hourly time series
