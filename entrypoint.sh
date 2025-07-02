@@ -20,12 +20,12 @@ if [ -z "$SCRIPT_NAME" ]; then
     exit 1
 fi
 
-# Check if script exists
-SCRIPT_PATH="scripts/$SCRIPT_NAME"
+# Check if script exists (look in current directory, not scripts subdirectory)
+SCRIPT_PATH="$SCRIPT_NAME"
 if [ ! -f "$SCRIPT_PATH" ]; then
-    echo "Error: Script '$SCRIPT_NAME' not found in scripts directory"
+    echo "Error: Script '$SCRIPT_NAME' not found"
     echo "Available scripts:"
-    ls -1 scripts/*.py 2>/dev/null || echo "  No Python scripts found in scripts directory"
+    ls -1 *.py 2>/dev/null || echo "  No Python scripts found"
     exit 1
 fi
 
