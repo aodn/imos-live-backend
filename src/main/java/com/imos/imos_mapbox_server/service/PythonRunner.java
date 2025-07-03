@@ -49,7 +49,7 @@ public class PythonRunner {
         }
     }
 
-    // Daily wave buoys processing at 2:00 AM
+    // Daily wave buoys processing at 2:00 AM, this should process current month wave buoy files per day because each day the existing current files will be updated, until new month comes then new files generated.
     @Scheduled(cron = "0 0 2 ? * *")
     public void runWaveBuoysScript() {
         log.info("Starting monthly wave buoys script execution");

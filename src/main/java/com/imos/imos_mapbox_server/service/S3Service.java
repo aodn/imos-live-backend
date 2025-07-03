@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -86,6 +88,7 @@ public class S3Service {
     }
 
 
+    //List<String> dates expect to be YYYY-mm-dd
     public List<String> findGslaMissingFiles(Path sourceDir, List<String> dates) {
         List<String> missingFiles = new ArrayList<>();
 
@@ -113,7 +116,7 @@ public class S3Service {
         return missingFiles;
     }
 
-
+    //List<String> dates expect to be YYYY-mm-dd
     public List<String> findBuoyMissingFiles(Path sourceDir, List<String> dates) {
         String locationPrefix = generateS3Key(sourceDir.resolve(BUOY_LOCATION_DIR)) ;
         String detailsPrefix = generateS3Key(sourceDir.resolve(BUOY_DETAILS_DIR));
@@ -123,9 +126,20 @@ public class S3Service {
                 missingFiles.add(date);
             }
         }
+
+        String extraDate=getExtraDate();
+        missingFiles.add(extraDate);
+
         return missingFiles;
     }
 
+    private String getExtraDate() {
+        LocalDate now = LocalDate.now();
+        LocalDate date = now.getDayOfMonth() == 1
+                ? now.minusMonths(1).withDayOfMonth(1)
+                : now.withDayOfMonth(1);
+        return date.format(DateTimeFormatter.ISO_LOCAL_DATE);
+    }
 
     private boolean shouldUploadFile(Path file) {
         String fileName = file.getFileName().toString();
