@@ -37,7 +37,7 @@ public class S3Service {
 
 
     private static final Set<String> EXCLUDED_FILES = Set.of(
-//           GSLA_DATA
+
     );
 
     public  void uploadFile(String key, Path filePath) {

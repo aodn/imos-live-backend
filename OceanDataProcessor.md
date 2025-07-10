@@ -179,18 +179,18 @@ docker run --rm -v "${PWD}/generated-images:/data" ocean-data-processor \
 ## Output Directory Structure
 
 ```
-generated-images/
-├── 2025-06-19/                    # GSLA outputs
-│   ├── gsla_overlay.png
-│   ├── gsla_input.png
-│   ├── gsla_meta.json
-│   └── gsla_data.json
-├── buoy_locations/                # Wave buoy locations
-│   └── buoy_locations_2025-06-19.geojson
-└── buoy_details/           # Detailed wave data
-    ├── APOLLO-BAY_2025-06-19.geojson
-    ├── STORM-BAY_2025-06-19.geojson
-    └── ...
+processed-data/
+GSLA ── 2025-06-19/                    # GSLA outputs
+│         ├── gsla_overlay.png
+│         ├── gsla_input.png
+│         ├── gsla_meta.json
+│         └── gsla_data.json
+BUOY ── buoy_locations/                # Wave buoy locations
+│         └── buoy_locations_2025-06-19.geojson
+└──     buoy_details/           # Detailed wave data
+          ├── APOLLO-BAY_2025-06-19.geojson
+          ├── STORM-BAY_2025-06-19.geojson
+          └── ...
 ```
 
 ## Troubleshooting
