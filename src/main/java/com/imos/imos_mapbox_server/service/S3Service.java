@@ -37,7 +37,7 @@ public class S3Service {
 
 
     private static final Set<String> EXCLUDED_FILES = Set.of(
-           GSLA_DATA
+//           GSLA_DATA
     );
 
     public  void uploadFile(String key, Path filePath) {
@@ -103,7 +103,10 @@ public class S3Service {
                 Path metaFile = sourceDir.resolve(date).resolve(GSLA_META);
                 String metaKey = generateS3Key(metaFile);
 
-                if (!objectExists(overlayKey) || !objectExists(inputKey) || !objectExists(metaKey)) {
+                Path dataFile = sourceDir.resolve(date).resolve(GSLA_DATA);
+                String dataKey = generateS3Key(dataFile);
+
+                if (!objectExists(overlayKey) || !objectExists(inputKey) || !objectExists(metaKey) || !objectExists(dataKey)) {
                     missingFiles.add(date);
                     log.debug("Missing files for date: {}", date);
                 }
