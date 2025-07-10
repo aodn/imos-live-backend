@@ -153,7 +153,6 @@ def to_json_value(dataset_in, filename):
         lon_min, lon_max = dataset_in.LONGITUDE.min().values.item(), dataset_in.LONGITUDE.max().values.item()
         lon_offset = 0.5 * (lon_max - lon_min) / len(dataset_in.LONGITUDE)
 
-        dataset_in["ALPHA"] = np.logical_not(np.logical_and(dataset_in.UCUR.isnull(), dataset_in.VCUR.isnull()))
         dataset_in["UCUR_NEW"] = dataset_in.UCUR.fillna(0.)
         dataset_in["VCUR_NEW"] = dataset_in.VCUR.fillna(0.)
         dataset_in["GSLA_NEW"] = dataset_in.GSLA.fillna(0.)
@@ -163,11 +162,10 @@ def to_json_value(dataset_in, filename):
 
         u = dataset_in["UCUR_NEW"].values
         v = dataset_in["VCUR_NEW"].values
-        alpha = dataset_in["ALPHA"].values
         gsla = dataset_in["GSLA_NEW"].values
 
-        combined = np.stack((u, v, alpha, gsla), axis=-1).tolist()
-        rounded = [[[u,v, alpha, gsla] for u, v, alpha, gsla in row] for row in combined]
+        combined = np.stack((u, v, gsla), axis=-1).tolist()
+        rounded = [[[round(u, 2), round(v, 2), round(gsla, 2)] for u, v, gsla in row] for row in combined]
         output = {
             "width": dataset_in.sizes["LONGITUDE"],
             "height": dataset_in.sizes["LATITUDE"],
@@ -177,7 +175,7 @@ def to_json_value(dataset_in, filename):
         }
 
         with open(filename, "w") as f:
-            json.dump(output, f)
+            json.dump(output, f, separators=(',', ':'))
 
         logger.info(f"Created data JSON: {filename}")
 
