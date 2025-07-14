@@ -141,7 +141,7 @@ def to_png_input(dataset_in, filename):
 
 def to_json_value(dataset_in, filename):
     """
-    Convert to a 2-d array including original ucur, vcur, alpha and gsla value.
+    Convert to a 2-d array including original ucur, vcur and gsla value.
 
     Args:
         dataset_in: xarray Dataset containing the data
@@ -165,7 +165,7 @@ def to_json_value(dataset_in, filename):
         gsla = dataset_in["GSLA_NEW"].values
 
         combined = np.stack((u, v, gsla), axis=-1).tolist()
-        rounded = [[[round(u, 2), round(v, 2), round(gsla, 2)] for u, v, gsla in row] for row in combined]
+        rounded = [[[round(u, 3), round(v, 3), round(gsla, 3)] for u, v, gsla in row] for row in combined]
         output = {
             "width": dataset_in.sizes["LONGITUDE"],
             "height": dataset_in.sizes["LATITUDE"],
