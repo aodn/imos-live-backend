@@ -73,7 +73,7 @@ def to_png_overlay(dataset_in, filename):
             grid=False,
             cmap='viridis',
             geo=True,
-            coastline="10m",
+            coastline=False,
             hover=True,
             colorbar=False,
             height=700,
