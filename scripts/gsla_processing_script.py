@@ -73,7 +73,7 @@ def to_png_overlay(dataset_in, filename):
             grid=False,
             cmap='viridis',
             geo=True,
-            coastline="10m",
+            coastline=False,
             hover=True,
             colorbar=False,
             height=700,
@@ -164,8 +164,14 @@ def to_json_value(dataset_in, filename):
         v = dataset_in["VCUR_NEW"].values
         gsla = dataset_in["GSLA_NEW"].values
 
-        combined = np.stack((u, v, gsla), axis=-1).tolist()
-        rounded = [[[round(u, 3), round(v, 3), round(gsla, 3)] for u, v, gsla in row] for row in combined]
+        speed = np.sqrt(u * u + v * v)
+        direction = np.arctan2(v, u) * 180 / np.pi
+        direction = np.where(direction < 0, direction + 360, direction)
+
+        combined = np.stack((speed, direction, gsla), axis=-1).tolist()
+        rounded = [[[round(speed, 2), round(direction, 2), round(gsla, 2)]
+                    for speed, direction, gsla in row] for row in combined]
+
         output = {
             "width": dataset_in.sizes["LONGITUDE"],
             "height": dataset_in.sizes["LATITUDE"],
