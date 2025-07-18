@@ -51,21 +51,17 @@ public class DatasetMapper {
         );
 
         double[] values = details.getData()[index[1]][index[0]];
-        double u = values[0];
-        double v = values[1];
-        boolean alpha = values[2]!= 0.0;
+        double speed = values[0];
+        double degree = values[1];
         double gsla = values[3];
 
         return OceanCurrentResponse.builder()
-                .v(v)
-                .u(u)
-                .alpha(alpha)
                 .gsla(gsla)
                 .gslaUnit("m")
-                .speed(OceanCurrentUtils.generateSpeed(u,v))
+                .speed(speed)
                 .speedUnit("m/s")
-                .degree(OceanCurrentUtils.generateDegree(u,v))
-                .direction(OceanCurrentUtils.generateDirection(u,v))
+                .degree(degree)
+                .direction(OceanCurrentUtils.generateDirection(degree))
                 .build();
     }
 
