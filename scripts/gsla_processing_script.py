@@ -49,7 +49,7 @@ def get_dataset(date):
         ds.attrs['crs'] = ccrs.PlateCarree()  # "WGS84"
 
         # return slightly smaller subset to speed up and avoid issues around LON=180...
-        subset = ds.sel(TIME=date.strftime("%Y-%m-%d"), LATITUDE=slice(-50, 0), LONGITUDE=slice(110, 170))
+        subset = ds.sel(TIME=date.strftime("%Y-%m-%d"), LATITUDE=slice(-60, 10), LONGITUDE=slice(90, 180))
 
         logger.info(f"Dataset loaded successfully for {date.strftime('%Y-%m-%d')}")
         return subset
