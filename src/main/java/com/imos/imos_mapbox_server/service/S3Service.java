@@ -161,8 +161,8 @@ public class S3Service {
 
     private String generateS3Key(Path file) {
         Path relativePath = Paths.get(storagePath).relativize(file);
-        // This will create keys like: uploads/subdir/filename.txt
-        return String.format("uploads/%s", relativePath.toString().replace("\\", "/"));
+        // This will create keys like: imoslive/subdir/filename.txt
+        return String.format("imoslive/%s", relativePath.toString().replace("\\", "/"));
     }
 
 
