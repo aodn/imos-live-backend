@@ -33,6 +33,8 @@ Cartopy==0.24.0
 pyproj==3.6.1
 pyshp==2.3.1
 shapely==2.0.3
+rasterio==1.3.9
+bottleneck==1.3.8
 
 # Visualization (for GSLA script)
 matplotlib==3.8.3
