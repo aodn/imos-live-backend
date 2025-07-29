@@ -26,18 +26,17 @@ public class OceanCurrentUtils {
         return new int[]{(int) Math.floor(x), (int) Math.floor(y)};
     }
 
-    public static double generateSpeed(double u, double v) {
-        return Math.sqrt(u * u + v * v);
-    }
+//    public static double generateSpeed(double u, double v) {
+//        return Math.sqrt(u * u + v * v);
+//    }
+//
+//    public static double generateDegree(double u, double v) {
+//        double degree = Math.atan2(v,u)*180/Math.PI;
+//        if(degree < 0) degree = 360+degree;
+//        return degree;
+//    }
 
-    public static double generateDegree(double u, double v) {
-        double degree = Math.atan2(v,u)*180/Math.PI;
-        if(degree < 0) degree = 360+degree;
-        return degree;
-    }
-
-    public static Direction generateDirection(double u, double v) {
-        double degree = generateDegree(u,v);
+    public static Direction generateDirection(double degree) {
         return Direction.fromDegree(degree);
     }
 

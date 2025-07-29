@@ -2,8 +2,16 @@ spring:
   application:
     name: imos-mapbox-server
 
+
 app:
   storage:
-    path: ${user.home}/generated-images
+    path: ${user.home}/processed-data
+
+cloud:
+  aws:
+    region:
+      static: ap-southeast-2
+    s3:
+      bucket: datavis-apps-edge-data
 
 

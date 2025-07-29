@@ -13,9 +13,6 @@ public class OceanCurrentResponse {
     private String speedUnit;
     private Double degree;
     private Direction direction;
-    private Double u;
-    private Double v;
-    private boolean alpha;
     private Double gsla;
     private String gslaUnit;
 }
