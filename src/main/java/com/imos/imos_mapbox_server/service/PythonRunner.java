@@ -32,7 +32,7 @@ public class PythonRunner {
 
 
     // Daily GSLA processing at 9:40 AM
-    @Scheduled(cron = "0 40 09 * * ?")
+    @Scheduled(cron = "0 00 * * * ?")
     public void runGslaScript() {
         log.info("Starting daily GSLA script execution");
         try {
