@@ -275,8 +275,8 @@ def to_json_meta(dataset_in, filename):
         lon_offset = 0.5 * (lon_max - lon_min) / len(dataset_in.LONGITUDE)
 
         metadata = {
-            "raw_latRange": [lat_min, lat_max],
-            "raw_lonRange": [lon_min, lon_max],
+            "rawLatRange": [lat_min, lat_max],
+            "rawLonRange": [lon_min, lon_max],
             "latRange": [lat_min - lat_offset, lat_max + lat_offset],
             "lonRange": [lon_min - lon_offset, lon_max + lon_offset],
             "uRange": [dataset_in.UCUR.min().values.item(), dataset_in.UCUR.max().values.item()],
