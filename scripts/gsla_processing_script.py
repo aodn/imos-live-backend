@@ -70,12 +70,14 @@ def get_dataset(date):
 def to_png_overlay(dataset_in, filename):
     """
     Create a PNG overlay visualization of GSLA data with transparent land areas.
+    Properly aligned for Web Mercator (EPSG:3857) projection.
 
     Args:
         dataset_in: xarray Dataset containing GSLA data
         filename: Output filename for the PNG
     """
     try:
+
         # Interpolate missing data
         dataset = dataset_in.copy()
         dataset['GSLA'] = dataset.GSLA.interpolate_na(dim='LONGITUDE', method='linear')
@@ -83,53 +85,81 @@ def to_png_overlay(dataset_in, filename):
         dataset['GSLA'] = dataset.GSLA.ffill(dim='LONGITUDE').bfill(dim='LONGITUDE')
         dataset['GSLA'] = dataset.GSLA.ffill(dim='LATITUDE').bfill(dim='LATITUDE')
 
-        # Create plot
-        mplt = dataset.GSLA.hvplot.quadmesh(
-            title='', grid=False, cmap='viridis', geo=True, coastline=False,
-            hover=False, colorbar=False, height=700, projection='Mercator',
-            xaxis=None, yaxis=None
-        )
-
-        # Save plot
-        fig = hvplot.render(mplt, backend="matplotlib")
-        fig.axes[0].set_frame_on(False)
-        fig.savefig(filename, bbox_inches='tight', pad_inches=0, transparent=True, dpi=600)
-
-        # Get coordinates
-        img = Image.open(filename).convert('RGBA')
-        width, height = img.size
-        ax = fig.axes[0]
-        x_bounds = ax.get_xlim()
-        y_bounds = ax.get_ylim()
+        # Get geographic bounds
         lat_bounds = (float(dataset.LATITUDE.min()), float(dataset.LATITUDE.max()))
         lon_bounds = (float(dataset.LONGITUDE.min()), float(dataset.LONGITUDE.max()))
 
-        # Load and project land data (use higher resolution)
+        # Transform geographic bounds to Web Mercator (EPSG:3857)
+        transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+        x_min, y_min = transformer.transform(lon_bounds[0], lat_bounds[0])
+        x_max, y_max = transformer.transform(lon_bounds[1], lat_bounds[1])
+
+        # Create plot with explicit extent in Web Mercator
+        mplt = dataset.GSLA.hvplot.quadmesh(
+            title='',
+            grid=False,
+            cmap='viridis',
+            geo=True,
+            coastline=False,
+            hover=False,
+            colorbar=False,
+            height=700,
+            projection='Mercator',
+            xaxis=None,
+            yaxis=None
+        )
+
+        # Render and save plot
+        fig = hvplot.render(mplt, backend="matplotlib")
+        fig.axes[0].set_frame_on(False)
+
+        # Set explicit limits in Web Mercator coordinates
+        fig.axes[0].set_xlim(x_min, x_max)
+        fig.axes[0].set_ylim(y_min, y_max)
+
+        fig.savefig(filename, bbox_inches='tight', pad_inches=0, transparent=True, dpi=600)
+
+        # Get image dimensions
+        img = Image.open(filename).convert('RGBA')
+        width, height = img.size
+
+        # Load and project land data
         land_shp = shpreader.natural_earth(resolution='10m', category='physical', name='land')
         land_reader = shpreader.Reader(land_shp)
         bbox = box(lon_bounds[0], lat_bounds[0], lon_bounds[1], lat_bounds[1])
         relevant_geoms = [record.geometry for record in land_reader.records()
                           if record.geometry.intersects(bbox)]
 
-        # Transform to Mercator and apply small inward buffer to reduce land area
-        transformer = pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
+        # Transform geometries to Web Mercator
         projected_geoms = []
         for geom in relevant_geoms:
             projected_geom = transform(transformer.transform, geom)
-            # Apply small inward buffer (negative buffer) to shrink land slightly
-            buffered_geom = projected_geom.buffer(0)  # 0 m inward
+            # Apply small buffer if needed (0 means no buffer)
+            buffered_geom = projected_geom.buffer(0)
             if not buffered_geom.is_empty:
                 projected_geoms.append(buffered_geom)
 
-        transform_obj = from_bounds(x_bounds[0], y_bounds[0], x_bounds[1], y_bounds[1], width, height)
-        land_mask = rasterize(projected_geoms, out_shape=(height, width),
-                              transform=transform_obj, fill=0, default_value=1, dtype=np.uint8)
+        # Create rasterio transform using Web Mercator bounds
+        transform_obj = from_bounds(x_min, y_min, x_max, y_max, width, height)
 
-        # Apply transparency and save
+        # Rasterize land geometries
+        land_mask = rasterize(
+            projected_geoms,
+            out_shape=(height, width),
+            transform=transform_obj,
+            fill=0,
+            default_value=1,
+            dtype=np.uint8
+        )
+
+        # Apply transparency to land areas
         img_array = np.array(img)
-        img_array[land_mask.astype(bool), 3] = 0
+        img_array[land_mask.astype(bool), 3] = 0  # Set alpha to 0 for land areas
+
+        # Save final image
         Image.fromarray(img_array, 'RGBA').save(filename)
         plt.close(fig)
+
     except Exception as e:
         logger.error(f"Error creating overlay PNG {filename}: {e}")
         raise
@@ -231,7 +261,8 @@ def to_json_value(dataset_in, filename):
 
 def to_json_meta(dataset_in, filename):
     """
-    Get the bounds and uRange and vRange metadata.
+    Get the raw bounds, bounds with offset adjusted and uRange and vRange metadata.
+    raw bounds will be used for overlay layer. adjusted bounds will be used for particle layer and map bounds.
 
     Args:
         dataset_in: xarray Dataset containing the data
@@ -244,6 +275,8 @@ def to_json_meta(dataset_in, filename):
         lon_offset = 0.5 * (lon_max - lon_min) / len(dataset_in.LONGITUDE)
 
         metadata = {
+            "raw_latRange": [lat_min, lat_max],
+            "raw_lonRange": [lon_min, lon_max],
             "latRange": [lat_min - lat_offset, lat_max + lat_offset],
             "lonRange": [lon_min - lon_offset, lon_max + lon_offset],
             "uRange": [dataset_in.UCUR.min().values.item(), dataset_in.UCUR.max().values.item()],
