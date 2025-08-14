@@ -365,6 +365,28 @@ def create_gsla_data_for_date(date, base_dir):
         logger.error(f"Error processing GSLA data for {date.strftime('%Y-%m-%d')}: {e}")
         raise
 
+def validate_dates(dates):
+    """
+    Validate date format and log any issues.
+
+    Args:
+        dates: List of date strings
+
+    Returns:
+        List of validated datetime objects
+    """
+    validated_dates = []
+
+    for date_str in dates:
+        try:
+            date = datetime.datetime.strptime(date_str, "%Y-%m-%d")
+            validated_dates.append(date)
+        except ValueError as e:
+            logger.error(f"❌ Invalid date format: {date_str} (expected YYYY-MM-DD)")
+            raise ValueError(f"Invalid date format: {date_str}")
+
+    return validated_dates
+
 def main():
     """Main function with improved error handling and logging."""
     parser = argparse.ArgumentParser(
@@ -405,23 +427,23 @@ Examples:
         args.output_base_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Output directory: {args.output_base_dir.absolute()}")
 
-        dates = args.dates
+        validated_dates = validate_dates(args.dates)
 
         # Process each date
         successful_dates = 0
-        for date in dates:
+        for date in validated_dates:
             try:
                 create_gsla_data_for_date(date, args.output_base_dir)
                 successful_dates += 1
             except Exception as e:
                 logger.error(f"Failed to process {date.strftime('%Y-%m-%d')}: {e}")
 
-        logger.info(f"Successfully processed {successful_dates}/{len(dates)} dates")
+        logger.info(f"Successfully processed {successful_dates}/{len(validated_dates)} dates")
 
         if successful_dates == 0:
             logger.error("No dates were processed successfully")
             return 1
-        elif successful_dates < len(dates):
+        elif successful_dates < len(validated_dates):
             logger.warning("Some dates failed to process")
             return 1
         else:
