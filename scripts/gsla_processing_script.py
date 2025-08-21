@@ -3,10 +3,9 @@ import sys
 import s3fs
 import xarray as xr
 import holoviews as hv
-from hvplot import xarray
-import hvplot
 import cartopy.crs as ccrs
 import cartopy.io.shapereader as shpreader
+from matplotlib.colors import LinearSegmentedColormap
 from shapely.geometry import box
 from shapely.ops import transform
 import pyproj
@@ -67,17 +66,18 @@ def get_dataset(date):
         logger.error(f"Error loading dataset for {date.strftime('%Y-%m-%d')}: {e}")
         raise
 
-def to_png_overlay(dataset_in, filename):
+def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2):
     """
     Create a PNG overlay visualization of GSLA data with transparent land areas.
-    Properly aligned for Web Mercator (EPSG:3857) projection.
+    Uses matplotlib instead of hvplot for more direct control.
 
     Args:
         dataset_in: xarray Dataset containing GSLA data
         filename: Output filename for the PNG
+        vmin: Minimum value for colormap normalization, -1.2 is the min of gsla.
+        vmax: Maximum value for colormap normalization, 1.2 is the max of gsla.
     """
     try:
-
         # Interpolate missing data
         dataset = dataset_in.copy()
         dataset['GSLA'] = dataset.GSLA.interpolate_na(dim='LONGITUDE', method='linear')
@@ -94,69 +94,118 @@ def to_png_overlay(dataset_in, filename):
         x_min, y_min = transformer.transform(lon_bounds[0], lat_bounds[0])
         x_max, y_max = transformer.transform(lon_bounds[1], lat_bounds[1])
 
-        # explicitly set, because it needs to be same in frontend.
-        custom_viridis =  [
-            '#440154', '#440255', '#440357', '#450558', '#45065A', '#45085B', '#46095C', '#460B5E', '#460C5F',
-            '#460E61', '#470F62', '#471163', '#471265', '#471466', '#471567', '#471669', '#47186A', '#48196B',
-            '#481A6C', '#481C6E', '#481D6F', '#481E70', '#482071', '#482172', '#482273', '#482374', '#472575',
-            '#472676', '#472777', '#472878', '#472A79', '#472B7A', '#472C7B', '#462D7C', '#462F7C', '#46307D',
-            '#46317E', '#45327F', '#45347F', '#453580', '#453681', '#443781', '#443982', '#433A83', '#433B83',
-            '#433C84', '#423D84', '#423E85', '#424085', '#414186', '#414286', '#404387', '#404487', '#3F4587',
-            '#3F4788', '#3E4888', '#3E4989', '#3D4A89', '#3D4B89', '#3D4C89', '#3C4D8A', '#3C4E8A', '#3B508A',
-            '#3B518A', '#3A528B', '#3A538B', '#39548B', '#39558B', '#38568B', '#38578C', '#37588C', '#37598C',
-            '#365A8C', '#365B8C', '#355C8C', '#355D8C', '#345E8D', '#345F8D', '#33608D', '#33618D', '#32628D',
-            '#32638D', '#31648D', '#31658D', '#31668D', '#30678D', '#30688D', '#2F698D', '#2F6A8D', '#2E6B8E',
-            '#2E6C8E', '#2E6D8E', '#2D6E8E', '#2D6F8E', '#2C708E', '#2C718E', '#2C728E', '#2B738E', '#2B748E',
-            '#2A758E', '#2A768E', '#2A778E', '#29788E', '#29798E', '#287A8E', '#287A8E', '#287B8E', '#277C8E',
-            '#277D8E', '#277E8E', '#267F8E', '#26808E', '#26818E', '#25828E', '#25838D', '#24848D', '#24858D',
-            '#24868D', '#23878D', '#23888D', '#23898D', '#22898D', '#228A8D', '#228B8D', '#218C8D', '#218D8C',
-            '#218E8C', '#208F8C', '#20908C', '#20918C', '#1F928C', '#1F938B', '#1F948B', '#1F958B', '#1F968B',
-            '#1E978A', '#1E988A', '#1E998A', '#1E998A', '#1E9A89', '#1E9B89', '#1E9C89', '#1E9D88', '#1E9E88',
-            '#1E9F88', '#1EA087', '#1FA187', '#1FA286', '#1FA386', '#20A485', '#20A585', '#21A685', '#21A784',
-            '#22A784', '#23A883', '#23A982', '#24AA82', '#25AB81', '#26AC81', '#27AD80', '#28AE7F', '#29AF7F',
-            '#2AB07E', '#2BB17D', '#2CB17D', '#2EB27C', '#2FB37B', '#30B47A', '#32B57A', '#33B679', '#35B778',
-            '#36B877', '#38B976', '#39B976', '#3BBA75', '#3DBB74', '#3EBC73', '#40BD72', '#42BE71', '#44BE70',
-            '#45BF6F', '#47C06E', '#49C16D', '#4BC26C', '#4DC26B', '#4FC369', '#51C468', '#53C567', '#55C666',
-            '#57C665', '#59C764', '#5BC862', '#5EC961', '#60C960', '#62CA5F', '#64CB5D', '#67CC5C', '#69CC5B',
-            '#6BCD59', '#6DCE58', '#70CE56', '#72CF55', '#74D054', '#77D052', '#79D151', '#7CD24F', '#7ED24E',
-            '#81D34C', '#83D34B', '#86D449', '#88D547', '#8BD546', '#8DD644', '#90D643', '#92D741', '#95D73F',
-            '#97D83E', '#9AD83C', '#9DD93A', '#9FD938', '#A2DA37', '#A5DA35', '#A7DB33', '#AADB32', '#ADDC30',
-            '#AFDC2E', '#B2DD2C', '#B5DD2B', '#B7DD29', '#BADE27', '#BDDE26', '#BFDF24', '#C2DF22', '#C5DF21',
-            '#C7E01F', '#CAE01E', '#CDE01D', '#CFE11C', '#D2E11B', '#D4E11A', '#D7E219', '#DAE218', '#DCE218',
-            '#DFE318', '#E1E318', '#E4E318', '#E7E419', '#E9E419', '#ECE41A', '#EEE51B', '#F1E51C', '#F3E51E',
-            '#F6E61F', '#F8E621', '#FAE622', '#FDE724'
+        # Transform coordinate arrays to Web Mercator
+        lon_2d, lat_2d = np.meshgrid(dataset.LONGITUDE.values, dataset.LATITUDE.values)
+        x_coords, y_coords = transformer.transform(lon_2d.flatten(), lat_2d.flatten())
+        x_coords = x_coords.reshape(lon_2d.shape)
+        y_coords = y_coords.reshape(lat_2d.shape)
+
+        # this is from Gabriela.Semolinipilo@csiro.au and this should be same in frontend when generate legend.
+        colors = [
+            (0, 0, 0.482),
+            (0, 0, 0.50218),
+            (0, 0, 0.52534),
+            (0, 0, 0.54956),
+            (0, 0.025383, 0.58095),
+            (0, 0.07278, 0.61329),
+            (0, 0.12013, 0.64869),
+            (0, 0.16728, 0.68794),
+            (0, 0.22396, 0.73282),
+            (0, 0.28639, 0.78747),
+            (0, 0.34613, 0.84284),
+            (0, 0.40579, 0.89829),
+            (0, 0.47426, 0.9398),
+            (0, 0.54918, 0.97544),
+            (0, 0.61362, 0.99171),
+            (0, 0.66965, 0.99559),
+            (0, 0.7232, 0.98594),
+            (0, 0.77437, 0.96076),
+            (0, 0.80867, 0.89862),
+            (0, 0.82905, 0.81967),
+            (0, 0.82884, 0.7443),
+            (0, 0.80974, 0.66939),
+            (0, 0.7863, 0.59404),
+            (0, 0.76642, 0.51917),
+            (0, 0.74988, 0.44772),
+            (0, 0.7339, 0.37945),
+            (0, 0.72899, 0.32053),
+            (0, 0.72878, 0.26877),
+            (0, 0.74456, 0.21724),
+            (0, 0.76053, 0.16994),
+            (0, 0.79162, 0.12556),
+            (0, 0.82383, 0.082186),
+            (0, 0.85513, 0.046833),
+            (0, 0.88238, 0.011428),
+            (0.18068, 0.91064, 0),
+            (0.41904, 0.94198, 0),
+            (0.56948, 0.966, 0),
+            (0.696, 0.98928, 0),
+            (0.77211, 0.99599, 0),
+            (0.83585, 0.9961, 0),
+            (0.87785, 0.97825, 0),
+            (0.91384, 0.95503, 0),
+            (0.93912, 0.92141, 0),
+            (0.96858, 0.88564, 0),
+            (0.98192, 0.85183, 0),
+            (0.99397, 0.82057, 0),
+            (0.996, 0.78241, 0),
+            (0.99795, 0.74317, 0),
+            (0.99787, 0.69933, 0),
+            (0.99408, 0.65588, 0),
+            (0.97754, 0.61753, 0),
+            (0.95985, 0.57266, 0),
+            (0.93568, 0.53352, 0),
+            (0.91237, 0.48932, 0),
+            (0.88869, 0.45078, 0),
+            (0.86057, 0.40665, 0),
+            (0.8327, 0.36373, 0),
+            (0.80153, 0.31613, 0),
+            (0.77014, 0.26528, 0),
+            (0.73781, 0.21383, 0),
+            (0.71859, 0.16203, 0),
+            (0.69843, 0.10697, 0),
+            (0.67819, 0.055343, 0),
+            (0.659, 0, 0),
         ]
 
-        # Create plot with explicit extent in Web Mercator
-        mplt = dataset.GSLA.hvplot.quadmesh(
-            title='',
-            grid=False,
-            cmap=custom_viridis,
-            geo=True,
-            coastline=False,
-            hover=False,
-            colorbar=False,
-            height=700,
-            projection='Mercator',
-            xaxis=None,
-            yaxis=None
+        custom_cmap = LinearSegmentedColormap.from_list("my_cmap", colors, N=256)
+
+        # Create figure with specific size (adjust as needed)
+        fig, ax = plt.subplots(figsize=(10, 7), dpi=600/100)  # 600 DPI equivalent
+
+        # Remove all axes, frames, and whitespace
+        ax.set_frame_on(False)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+
+        # Create pcolormesh plot in Web Mercator coordinates
+        im = ax.pcolormesh(
+            x_coords,
+            y_coords,
+            dataset.GSLA.values,
+            cmap=custom_cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading='auto'
         )
 
-        # Render and save plot
-        fig = hvplot.render(mplt, backend="matplotlib")
-        fig.axes[0].set_frame_on(False)
+        # Set exact limits to Web Mercator bounds
+        ax.set_xlim(x_min, x_max)
+        ax.set_ylim(y_min, y_max)
 
-        # Set explicit limits in Web Mercator coordinates
-        fig.axes[0].set_xlim(x_min, x_max)
-        fig.axes[0].set_ylim(y_min, y_max)
+        # Ensure aspect ratio is equal
+        ax.set_aspect('equal')
 
+        # Save the plot
         fig.savefig(filename, bbox_inches='tight', pad_inches=0, transparent=True, dpi=600)
 
-        # Get image dimensions
+        # Get image dimensions for land masking
         img = Image.open(filename).convert('RGBA')
         width, height = img.size
 
-        # Load and project land data
+        # Load and project land data (same as original)
         land_shp = shpreader.natural_earth(resolution='10m', category='physical', name='land')
         land_reader = shpreader.Reader(land_shp)
         bbox = box(lon_bounds[0], lat_bounds[0], lon_bounds[1], lat_bounds[1])
@@ -167,7 +216,6 @@ def to_png_overlay(dataset_in, filename):
         projected_geoms = []
         for geom in relevant_geoms:
             projected_geom = transform(transformer.transform, geom)
-            # Apply small buffer if needed (0 means no buffer)
             buffered_geom = projected_geom.buffer(0)
             if not buffered_geom.is_empty:
                 projected_geoms.append(buffered_geom)
@@ -194,8 +242,9 @@ def to_png_overlay(dataset_in, filename):
         plt.close(fig)
 
     except Exception as e:
-        logger.error(f"Error creating overlay PNG {filename}: {e}")
+        print(f"Error creating overlay PNG {filename}: {e}")
         raise
+
 
 def to_png_input(dataset_in, filename):
     """

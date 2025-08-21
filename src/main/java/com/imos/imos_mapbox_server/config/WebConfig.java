@@ -20,8 +20,6 @@ import java.nio.file.Paths;
 public class WebConfig implements WebMvcConfigurer {
     @Value("${app.storage.path}")
     private String storagePath;
-    //expose files inside storagePath folder to downloadable url like files inside resources.
-    //TODO this is only for development, the images and other files should be better to be saved in S3.
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         String path = Paths.get(storagePath).toUri().toString();
