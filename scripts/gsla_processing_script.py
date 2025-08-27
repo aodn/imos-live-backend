@@ -6,6 +6,7 @@ import holoviews as hv
 import cartopy.crs as ccrs
 import cartopy.io.shapereader as shpreader
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib import colors
 from shapely.geometry import box
 from shapely.ops import transform
 import pyproj
@@ -66,16 +67,18 @@ def get_dataset(date):
         logger.error(f"Error loading dataset for {date.strftime('%Y-%m-%d')}: {e}")
         raise
 
-def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2):
+def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2, linthresh=0.1):
     """
     Create a PNG overlay visualization of GSLA data with transparent land areas.
-    Uses matplotlib instead of hvplot for more direct control.
+    Uses matplotlib with SymLogNorm for logarithmic scaling that handles negative values.
 
     Args:
         dataset_in: xarray Dataset containing GSLA data
         filename: Output filename for the PNG
         vmin: Minimum value for colormap normalization, -1.2 is the min of gsla.
         vmax: Maximum value for colormap normalization, 1.2 is the max of gsla.
+        linthresh: Linear threshold for SymLogNorm. Values between -linthresh and +linthresh
+                  are scaled linearly, outside this range logarithmically. Default 0.1.
     """
     try:
         # Interpolate missing data
@@ -101,7 +104,7 @@ def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2):
         y_coords = y_coords.reshape(lat_2d.shape)
 
         # this is from Gabriela.Semolinipilo@csiro.au and this should be same in frontend when generate legend.
-        colors = [
+        colors_list = [
             (0, 0, 0.482),
             (0, 0, 0.50218),
             (0, 0, 0.52534),
@@ -168,7 +171,7 @@ def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2):
             (0.659, 0, 0),
         ]
 
-        custom_cmap = LinearSegmentedColormap.from_list("my_cmap", colors, N=256)
+        custom_cmap = LinearSegmentedColormap.from_list("my_cmap", colors_list, N=256)
 
         # Create figure with specific size (adjust as needed)
         fig, ax = plt.subplots(figsize=(10, 7), dpi=600/100)  # 600 DPI equivalent
@@ -179,15 +182,16 @@ def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2):
         ax.set_yticks([])
         fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
+        # Create SymLogNorm for logarithmic scaling with negative value support
+        norm = colors.SymLogNorm(linthresh=linthresh, vmin=vmin, vmax=vmax)
 
-        # Create pcolormesh plot in Web Mercator coordinates
+        # Create pcolormesh plot in Web Mercator coordinates with SymLogNorm
         im = ax.pcolormesh(
             x_coords,
             y_coords,
             dataset.GSLA.values,
             cmap=custom_cmap,
-            vmin=vmin,
-            vmax=vmax,
+            norm=norm,
             shading='auto'
         )
 
@@ -244,7 +248,6 @@ def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2):
     except Exception as e:
         print(f"Error creating overlay PNG {filename}: {e}")
         raise
-
 
 def to_png_input(dataset_in, filename):
     """
