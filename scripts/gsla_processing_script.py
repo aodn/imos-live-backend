@@ -67,7 +67,7 @@ def get_dataset(date):
         logger.error(f"Error loading dataset for {date.strftime('%Y-%m-%d')}: {e}")
         raise
 
-def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2, linthresh=0.1):
+def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2, linthresh=0.1, brightness=0.7):
     """
     Create a PNG overlay visualization of GSLA data with transparent land areas.
     Uses matplotlib with SymLogNorm for logarithmic scaling that handles negative values.
@@ -79,6 +79,7 @@ def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2, linthresh=0.1):
         vmax: Maximum value for colormap normalization, 1.2 is the max of gsla.
         linthresh: Linear threshold for SymLogNorm. Values between -linthresh and +linthresh
                   are scaled linearly, outside this range logarithmically. Default 0.1.
+        brightness: Brightness factor (0.0 = black, 1.0 = original, >1.0 = brighter). Default 0.7.
     """
     try:
         # Interpolate missing data
@@ -237,9 +238,96 @@ def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2, linthresh=0.1):
             dtype=np.uint8
         )
 
-        # Apply transparency to land areas
+        # Apply transparency to land areas and adjust brightness
         img_array = np.array(img)
-        img_array[land_mask.astype(bool), 3] = 0  # Set alpha to 0 for land areas
+
+        # Apply brightness adjustment to RGB channels only (preserve alpha)
+        if brightness != 1.0:
+            # Using optimized HSL conversion functions
+            def rgb_to_hsl(rgb: np.ndarray) -> np.ndarray:
+                """Convert RGB to HSL with optimized vectorized operations."""
+                r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+                max_val = np.max(rgb, axis=-1)
+                min_val = np.min(rgb, axis=-1)
+                diff = max_val - min_val
+
+                # Lightness
+                l = (max_val + min_val) / 2
+
+                # Saturation
+                s = np.zeros_like(l)
+                nonzero = diff > 1e-10  # avoid division by zero
+                s[nonzero & (l <= 0.5)] = diff[nonzero & (l <= 0.5)] / (max_val + min_val)[nonzero & (l <= 0.5)]
+                s[nonzero & (l > 0.5)] = diff[nonzero & (l > 0.5)] / (2 - max_val - min_val)[nonzero & (l > 0.5)]
+
+                # Hue - vectorized calculation
+                h = np.zeros_like(l)
+                mask = diff > 1e-10
+                hue_raw = np.zeros(rgb.shape[:-1] + (3,))
+                hue_raw[..., 0] = ((g - b) / diff) % 6     # if red is max
+                hue_raw[..., 1] = ((b - r) / diff) + 2     # if green is max
+                hue_raw[..., 2] = ((r - g) / diff) + 4     # if blue is max
+
+                # Pick hue channel based on argmax
+                idx = np.argmax(rgb, axis=-1)
+                h[mask] = hue_raw[..., 0][mask] * (idx == 0)[mask] \
+                          + hue_raw[..., 1][mask] * (idx == 1)[mask] \
+                          + hue_raw[..., 2][mask] * (idx == 2)[mask]
+                h = (h / 6) % 1  # normalize to [0,1)
+
+                return np.stack([h, s, l], axis=-1)
+
+            def hsl_to_rgb(hsl: np.ndarray) -> np.ndarray:
+                """Convert HSL to RGB with optimized vectorized operations."""
+                h, s, l = hsl[..., 0], hsl[..., 1], hsl[..., 2]
+                rgb = np.zeros_like(hsl)
+
+                # Grayscale (saturation = 0)
+                mask_gray = s == 0
+                rgb[mask_gray] = l[mask_gray, np.newaxis]
+
+                # Colorful pixels
+                mask_color = ~mask_gray
+                if np.any(mask_color):
+                    h_color = h[mask_color]
+                    s_color = s[mask_color]
+                    l_color = l[mask_color]
+
+                    q = np.where(l_color < 0.5,
+                                 l_color * (1 + s_color),
+                                 l_color + s_color - l_color * s_color)
+                    p = 2 * l_color - q
+
+                    # Broadcast for r,g,b with hue offsets
+                    t = np.stack([
+                        h_color + 1/3,  # Red
+                        h_color,        # Green
+                        h_color - 1/3   # Blue
+                    ], axis=-1)
+                    t = t % 1  # wrap around [0,1)
+
+                    # Apply piecewise function
+                    rgb_color = np.empty_like(t)
+                    rgb_color = np.where(t < 1/6, p[..., None] + (q - p)[..., None] * 6 * t, rgb_color)
+                    rgb_color = np.where((t >= 1/6) & (t < 1/2), q[..., None], rgb_color)
+                    rgb_color = np.where((t >= 1/2) & (t < 2/3),
+                                         p[..., None] + (q - p)[..., None] * (2/3 - t) * 6,
+                                         rgb_color)
+                    rgb_color = np.where(t >= 2/3, p[..., None], rgb_color)
+                    rgb[mask_color] = rgb_color
+
+                return rgb
+
+            # Convert to HSL, adjust lightness, convert back
+            rgb_data = img_array[:, :, :3] / 255.0  # Normalize to 0-1
+            hsl_data = rgb_to_hsl(rgb_data)
+            hsl_data[..., 2] = np.clip(hsl_data[..., 2] * brightness, 0, 1)  # Adjust lightness
+            rgb_adjusted = hsl_to_rgb(hsl_data)
+            img_array[:, :, :3] = (rgb_adjusted * 255).clip(0, 255).astype(np.uint8)
+
+
+        # Set alpha to 0 for land areas (after brightness adjustment)
+        img_array[land_mask.astype(bool), 3] = 0
 
         # Save final image
         Image.fromarray(img_array, 'RGBA').save(filename)
@@ -248,6 +336,7 @@ def to_png_overlay(dataset_in, filename, vmin=-1.2, vmax=1.2, linthresh=0.1):
     except Exception as e:
         print(f"Error creating overlay PNG {filename}: {e}")
         raise
+
 
 def to_png_input(dataset_in, filename):
     """
